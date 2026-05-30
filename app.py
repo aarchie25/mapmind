@@ -146,7 +146,7 @@ if search_button and question:
     with st.spinner("🧠 Understanding your question and searching the map..."):
         try:
             response = requests.post(
-                "http://localhost:8000/query",
+                "https://web-production-f7628f.up.railway.app/query",
                 json={"question": question},
                 timeout=60
             )
