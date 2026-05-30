@@ -63,6 +63,17 @@ CATEGORY_MAP = {
     "cinema": "cinema",
     "movie theater": "cinema",
     "theatre": "theatre",
+    "zoo": "zoo",
+    "zoos": "zoo",
+    "museum": "museum",
+    "museums": "museum",
+    "aquarium": "aquarium",
+    "theme park": "theme_park",
+    "amusement park": "theme_park",
+    "golf": "golf_course",
+    "golf course": "golf_course",
+    "swimming pool": "swimming_pool",
+    "pool": "swimming_pool",
 
     # Accommodation
     "hotel": "hotel",
@@ -75,6 +86,13 @@ CATEGORY_MAP = {
     "church": "place_of_worship",
     "temple": "place_of_worship",
     "synagogue": "place_of_worship",
+
+    # Government
+    "police": "police",
+    "fire station": "fire_station",
+    "post office": "post_office",
+    "courthouse": "courthouse",
+    "embassy": "embassy",
 }
 
 
@@ -84,8 +102,8 @@ def normalize_category(category: str) -> tuple:
 
     OSM uses different keys for different place types:
     - amenity: cafe, restaurant, hospital, pharmacy, bank etc
-    - leisure: park, gym, playground etc
-    - tourism: hotel, museum, attraction etc
+    - leisure: park, gym, playground, golf_course, swimming_pool etc
+    - tourism: hotel, zoo, museum, aquarium, theme_park etc
     - shop: supermarket, convenience, mall etc
 
     Returns (tag_key, tag_value) tuple
@@ -93,10 +111,16 @@ def normalize_category(category: str) -> tuple:
     cat = category.lower().strip()
     mapped = CATEGORY_MAP.get(cat, cat)
 
-    leisure_tags = ["park", "fitness_centre",
-                    "playground", "stadium", "sports_centre"]
-    tourism_tags = ["hotel", "motel", "hostel",
-                    "attraction", "museum", "gallery"]
+    leisure_tags = [
+        "park", "fitness_centre", "playground", "stadium",
+        "sports_centre", "golf_course", "swimming_pool",
+        "pitch", "track"
+    ]
+    tourism_tags = [
+        "hotel", "motel", "hostel", "attraction",
+        "museum", "gallery", "zoo", "aquarium",
+        "theme_park", "viewpoint"
+    ]
     shop_tags = ["supermarket", "mall", "convenience", "shop"]
 
     if mapped in leisure_tags:
@@ -178,10 +202,23 @@ def search_places(location: str, category: str, radius_km: float) -> list:
                 {"tourism": "guest_house"},
                 {"tourism": "hostel"},
             ]
+        elif tag_value in ["zoo", "aquarium", "museum", "theme_park"]:
+            tag_attempts = [
+                {"tourism": tag_value},
+                {"leisure": tag_value},
+                {"amenity": tag_value},
+            ]
+        elif tag_value in ["golf_course", "swimming_pool"]:
+            tag_attempts = [
+                {"leisure": tag_value},
+                {"sport": tag_value},
+            ]
         else:
             tag_attempts = [
                 {tag_key: tag_value},
                 {"amenity": tag_value},
+                {"tourism": tag_value},
+                {"leisure": tag_value},
             ]
 
         print(f"Will try {len(tag_attempts)} tag combinations")
