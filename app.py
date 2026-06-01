@@ -73,7 +73,6 @@ with st.sidebar:
 
 
 def haversine(lat1, lon1, lat2, lon2):
-    """Calculate distance in km between two coordinates."""
     R = 6371
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
@@ -83,7 +82,6 @@ def haversine(lat1, lon1, lat2, lon2):
 
 
 def is_healthcare_category(category: str) -> bool:
-    """Check if the searched category is healthcare related."""
     healthcare_keywords = [
         "hospital", "hospitals", "pharmacy", "pharmacies",
         "clinic", "clinics", "doctor", "doctors", "dentist",
@@ -95,13 +93,8 @@ def is_healthcare_category(category: str) -> bool:
 
 
 def get_access_score(total: int, radius_km: float) -> tuple:
-    """
-    Calculate healthcare access score based on facility density.
-    Returns (level, color, message) tuple.
-    """
     area_km2 = 3.14159 * (radius_km ** 2)
     density = total / area_km2
-
     if density >= 2:
         return (
             "🟢 Good Access",
@@ -118,7 +111,7 @@ def get_access_score(total: int, radius_km: float) -> tuple:
         return (
             "🔴 Poor Access — Possible Healthcare Desert",
             "error",
-            f"This area has critically poor healthcare access — only {total} facilities in {radius_km}km. This may qualify as a healthcare desert, a known barrier for vulnerable populations."
+            f"This area has critically poor healthcare access — only {total} facilities in {radius_km}km. This may qualify as a healthcare desert."
         )
 
 
@@ -143,6 +136,8 @@ if "preset_query" in st.session_state:
 
 # ─── Search Logic ─────────────────────────────────────────────────────────────
 if search_button and question:
+    # Clear previous results before new search
+    st.session_state.results_data = None
     with st.spinner("🧠 Understanding your question and searching the map..."):
         try:
             response = requests.post(
@@ -164,8 +159,7 @@ if search_button and question:
                     f"❌ API Error: {response.status_code} — {response.text}")
 
         except requests.exceptions.ConnectionError:
-            st.error(
-                "❌ Cannot connect to API. Make sure FastAPI is running in Terminal 1!")
+            st.error("❌ Cannot connect to API. Make sure FastAPI is running!")
         except requests.exceptions.Timeout:
             st.error("⏱️ Timed out — try a smaller radius.")
         except Exception as e:
@@ -203,19 +197,17 @@ if st.session_state.results_data:
 
             No healthcare facilities found in this area within the search radius.
             This indicates critically limited healthcare access — a significant
-            barrier for patients seeking treatment, including those with
-            Substance Use Disorders (SUD).
+            barrier for patients seeking treatment.
             """)
             st.markdown(f"""
             **What this means for {data['location']}:**
             - Residents must travel far for basic healthcare
-            - This is a known barrier for SUD treatment access
+            - This is a known barrier for treatment access
             - Areas like this are actively studied in healthcare equity research
-            - Programs like ASU SHARES investigate these access gaps
 
             **Try expanding the search:**
             - Increase radius to 10km or 20km
-            - Search for nearby larger cities
+            - Search for a nearby larger city
             """)
         else:
             st.warning("⚠️ No places found.")
@@ -228,8 +220,7 @@ if st.session_state.results_data:
 
     # ─── Results Found ────────────────────────────────────────────────────────
     else:
-
-        # Healthcare Access Score Banner
+        # Healthcare Access Score
         if is_health:
             level, color, msg = get_access_score(total, data["radius_km"])
             if color == "success":
@@ -240,10 +231,14 @@ if st.session_state.results_data:
                 st.error(f"**Healthcare Access Score: {level}**\n\n{msg}")
 
         # ─── Map ──────────────────────────────────────────────────────────────
-        st.subheader(f"🗺️ Map — {total} result(s) found")
+        # Limit to 50 results for map performance
+        display_results = data["results"][:50]
+        display_total = len(display_results)
 
-        center_lat = sum(p["lat"] for p in data["results"]) / total
-        center_lon = sum(p["lon"] for p in data["results"]) / total
+        st.subheader(f"🗺️ Map — showing {display_total} of {total} result(s)")
+
+        center_lat = sum(p["lat"] for p in display_results) / display_total
+        center_lon = sum(p["lon"] for p in display_results) / display_total
 
         m = folium.Map(
             location=[center_lat, center_lon],
@@ -284,7 +279,7 @@ if st.session_state.results_data:
         }
         pin_color = color_map.get(data["category"], "red")
 
-        for place in data["results"]:
+        for place in display_results:
             popup_html = f"<b>{place['name']}</b><br>📂 {place['category']}"
             if place.get("address"):
                 popup_html += f"<br>🏠 {place['address']}"
@@ -311,7 +306,7 @@ if st.session_state.results_data:
 
         distances = [
             haversine(center_lat, center_lon, p["lat"], p["lon"])
-            for p in data["results"]
+            for p in display_results
         ]
         avg_distance = sum(distances) / len(distances)
         min_distance = min(distances)
@@ -376,7 +371,7 @@ if st.session_state.results_data:
             )
 
         # ─── Results List ─────────────────────────────────────────────────────
-        for i, place in enumerate(data["results"], 1):
+        for i, place in enumerate(display_results, 1):
             with st.expander(f"{i}. {place['name']}"):
                 col1, col2 = st.columns(2)
                 with col1:
